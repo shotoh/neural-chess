@@ -12,7 +12,7 @@ def display_board(chess_board):
 
 def load_model():
     chess_model = create_model()
-    latest = tf.train.latest_checkpoint('training_3')
+    latest = tf.train.latest_checkpoint('training_4')
     print(latest)
     chess_model.load_weights(latest)
     return chess_model
@@ -53,10 +53,7 @@ def calculate_weight(prediction, legal_move):
     return move_from * move_to
 
 
-if __name__ == '__main__':
-    model = load_model()
-    board = chess.Board()
-
+def evaluate_model(chess_model):
     train_data = []
     train_labels = []
     with open('resources/output.txt', 'r') as f:
@@ -69,12 +66,14 @@ if __name__ == '__main__':
         train_labels.append(random_move[1])
     train_data = tf.stack(train_data, axis=0)
     train_labels = tf.stack(train_labels, axis=0)
-    loss, acc = model.evaluate(train_data, train_labels, verbose=2)
-    print("restored model, acc {:5.2f}".format(acc))
-    print("loss: {loss}".format(loss=loss))
+    loss, acc = chess_model.evaluate(train_data, train_labels, verbose=2)
+    print(f'loss: {loss}, acc: {acc}')
 
 
-
+if __name__ == '__main__':
+    model = load_model()
+    board = chess.Board()
+    evaluate_model(model)
     while not board.is_game_over():
         display_board(board)
         move = input('Enter your move: ')

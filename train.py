@@ -6,7 +6,7 @@ def get_random_move(games):
     moves = random_game.split(' ')
     if len(moves) < 3:
         return None
-    random_index = np.random.randint(0, 1)  # len(moves) - 2)
+    random_index = np.random.randint(0, len(moves) - 2)
     chess_board = chess.Board()
     for move in moves[:random_index]:
         chess_board.push_uci(move)
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     train_labels = []
     with open('resources/output.txt', 'r') as f:
         lines = f.read().splitlines()
-    for i in range(50000):
+    for i in range(1000000):
         if i % 10000 == 0:
             print(f'Creating training data... ({i / 10000}%)')
         random_move = get_random_move(lines)
@@ -36,6 +36,6 @@ if __name__ == '__main__':
     train_data = tf.stack(train_data, axis=0)
     train_labels = tf.stack(train_labels, axis=0)
     cp_callback = tf.keras.callbacks.ModelCheckpoint(
-        filepath="training_3/checkpoint.ckpt", verbose=1, save_weights_only=True, save_freq=5 * 32
+        filepath="training_4/checkpoint.ckpt", verbose=1, save_weights_only=True, save_freq=5 * 32
     )
     model.fit(train_data, train_labels, epochs=10, callbacks=[cp_callback])
