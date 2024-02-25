@@ -2,7 +2,7 @@ from utils import *
 
 
 def get_random_move(games):
-    random_game = np.random.choice(games)
+    random_game = games[np.random.randint(0, len(games))]
     moves = random_game.split(' ')
     if len(moves) < 3:
         return None
