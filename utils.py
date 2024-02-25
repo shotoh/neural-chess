@@ -34,6 +34,7 @@ complement_color = {
 def format_board(board, color):
     layers = []
     pieces = ['p', 'r', 'n', 'b', 'q', 'k']
+    board = board.copy()
     if color == 'b':
         board.apply_transform(chess.flip_vertical)
     for piece in pieces:
