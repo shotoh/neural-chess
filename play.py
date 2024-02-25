@@ -18,28 +18,39 @@ def load_model():
     return chess_model
 
 
-def get_move(chess_model, chess_board):
+def get_move(chess_model, chess_board, color):
     chess_board = chess_board.copy()
     formatted_board = format_board(chess_board, 'b')
-    prediction = chess_model.predict(tf.stack([formatted_board]))
+    prediction = chess_model.predict(tf.stack([formatted_board]))[0]
+    if color == 'b':
+        prediction[0] = np.fliplr(np.flipud(prediction[0]))
+        prediction[1] = np.fliplr(np.flipud(prediction[1]))
     legal_moves = list(chess_board.legal_moves)
     weights = []
+    sum_weight = 0
     for legal_move in legal_moves:
         chess_board.push_uci(str(legal_move))
         if chess_board.is_checkmate():
             return chess_board.pop()
         chess_board.pop()
-        weights.append(calculate_weight(prediction, legal_move))
+        weight = calculate_weight(prediction, legal_move)
+        weights.append(weight)
+        sum_weight += weight
+    for index in range(len(weights)):
+        if sum_weight == 0:
+            weights[index] = 1 / len(weights)
+        else:
+            weights[index] = weights[index] / sum_weight
     best_move = np.random.choice(legal_moves, p=weights)
-    print(f'{best_move}, best weight: {weights[best_move]}')
-    return best_move
+    print(f'{str(best_move)}, best weight: {weights[legal_moves.index(best_move)]}')
+    return str(best_move)
 
 
 def calculate_weight(prediction, legal_move):
     legal_move = str(legal_move)
-    move_from = [8 - int(legal_move[1])][letter_to_number[legal_move[0]]]
-    move_to = [8 - int(legal_move[3])][letter_to_number[legal_move[2]]]
-    return prediction[0][move_from] * prediction[1][move_to]
+    move_from = prediction[0][8 - int(legal_move[1])][letter_to_number[legal_move[0]]]
+    move_to = prediction[1][8 - int(legal_move[3])][letter_to_number[legal_move[2]]]
+    return move_from * move_to
 
 
 if __name__ == '__main__':
@@ -71,7 +82,6 @@ if __name__ == '__main__':
             break
         board.push_uci(move)
         display_board(board)
-        print(format_board(board, 'b'))
         print('AI is thinking...')
-        ai_move = get_move(model, board)
+        ai_move = get_move(model, board, 'b')
         board.push_uci(ai_move)
