@@ -1,3 +1,6 @@
+from keras import callbacks
+from keras.src.callbacks import ModelCheckpoint
+
 from utils import *
 
 
@@ -19,24 +22,28 @@ def get_random_move(games):
     return x, y
 
 
+def create_dataset(games):
+    ds = tf.data.Dataset.from_tensor_slices(games)
+    ds = ds.batch(10240).map(get_random_move).filter(lambda x: x is not None).unbatch()
+    return ds
+
+
 if __name__ == '__main__':
     model = create_model()
     train_data = []
     train_labels = []
     with open('resources/output.txt', 'r') as f:
         lines = f.read().splitlines()
-    for i in range(50000):
-        if i % 10000 == 0:
-            print(f'Creating training data... ({i / 10000}%)')
-        random_move = get_random_move(lines)
-        if random_move is None:
-            continue
-        train_data.append(random_move[0])
-        train_labels.append(random_move[1])
-    train_data = tf.stack(train_data, axis=0)
-    train_labels = tf.stack(train_labels, axis=0)
-    print(len(train_data), len(train_labels))
-    cp_callback = tf.keras.callbacks.ModelCheckpoint(
-        filepath="training_5/checkpoint.ckpt", verbose=1, save_weights_only=True, save_freq=5 * 32
+    packed_ds = create_dataset(lines)
+    print(len(packed_ds))
+    train_ds = packed_ds.skip(1024).take(51200).cache().shuffle(10240).repeat().batch(2048)
+    checkpoint_filepath = 'checkpoints/'
+    model_checkpointing_callback = ModelCheckpoint(
+        filepath=checkpoint_filepath,
+        save_best_only=True,
     )
-    model.fit(train_data, train_labels, epochs=10, callbacks=[cp_callback])
+    model.fit(train_data, train_labels, batch_size=2048, epochs=100,
+              callbacks=[callbacks.ReduceLROnPlateau(monitor='loss', patience=10),
+                         callbacks.EarlyStopping(monitor='loss', patience=15, min_delta=0.001),
+                         model_checkpointing_callback])
+    model.save('models/model_1.h5')
