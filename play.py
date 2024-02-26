@@ -12,7 +12,7 @@ def display_board(chess_board):
 
 def load_model():
     chess_model = create_model()
-    latest = tf.train.latest_checkpoint('training_4')
+    latest = tf.train.latest_checkpoint('training_5')
     print(latest)
     chess_model.load_weights(latest)
     return chess_model
@@ -41,6 +41,9 @@ def get_move(chess_model, chess_board, color):
             weights[index] = 1 / len(weights)
         else:
             weights[index] = weights[index] / sum_weight
+    print(legal_moves)
+    print(weights)
+    print(prediction)
     best_move = np.random.choice(legal_moves, p=weights)
     print(f'{str(best_move)}, best weight: {weights[legal_moves.index(best_move)]}')
     return str(best_move)
@@ -75,12 +78,15 @@ if __name__ == '__main__':
     board = chess.Board()
     evaluate_model(model)
     while not board.is_game_over():
-        display_board(board)
-        move = input('Enter your move: ')
-        if move == 'quit':
-            break
-        board.push_uci(move)
-        display_board(board)
-        print('AI is thinking...')
-        ai_move = get_move(model, board, 'b')
-        board.push_uci(ai_move)
+        try:
+            display_board(board)
+            move = input('Enter your move: ')
+            if move == 'quit':
+                break
+            board.push_uci(move)
+            display_board(board)
+            print('AI is thinking...')
+            ai_move = get_move(model, board, 'b')
+            board.push_uci(ai_move)
+        except ValueError:
+            print('Invalid move, try again!')
