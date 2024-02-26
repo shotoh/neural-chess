@@ -1,9 +1,10 @@
 import chess.svg
 import numpy as np
 import tensorflow as tf
+import torch
 
-from train import format_board, get_random_move
-from utils import create_model, letter_to_number
+from train import format_board, get_random_move, ChessModel, ChessLayer
+from utils import letter_to_number
 
 
 def display_board(chess_board):
@@ -11,17 +12,15 @@ def display_board(chess_board):
 
 
 def load_model():
-    chess_model = create_model()
-    latest = tf.train.latest_checkpoint('training_5')
-    print(latest)
-    chess_model.load_weights(latest)
+    chess_model = torch.load('models/model_20240226-1400_4.pth')
     return chess_model
 
 
 def get_move(chess_model, chess_board, color):
     chess_board = chess_board.copy()
     formatted_board = format_board(chess_board, 'b')
-    prediction = chess_model.predict(tf.stack([formatted_board]))[0]
+    prediction = chess_model(torch.from_numpy(np.stack([formatted_board])))
+    prediction = prediction.detach().numpy()[0]
     if color == 'b':
         prediction[0] = np.fliplr(np.flipud(prediction[0]))
         prediction[1] = np.fliplr(np.flipud(prediction[1]))
@@ -43,7 +42,6 @@ def get_move(chess_model, chess_board, color):
             weights[index] = weights[index] / sum_weight
     print(legal_moves)
     print(weights)
-    print(prediction)
     best_move = np.random.choice(legal_moves, p=weights)
     print(f'{str(best_move)}, best weight: {weights[legal_moves.index(best_move)]}')
     return str(best_move)
@@ -76,17 +74,14 @@ def evaluate_model(chess_model):
 if __name__ == '__main__':
     model = load_model()
     board = chess.Board()
-    evaluate_model(model)
+    #evaluate_model(model)
     while not board.is_game_over():
-        try:
-            display_board(board)
-            move = input('Enter your move: ')
-            if move == 'quit':
-                break
-            board.push_uci(move)
-            display_board(board)
-            print('AI is thinking...')
-            ai_move = get_move(model, board, 'b')
-            board.push_uci(ai_move)
-        except ValueError:
-            print('Invalid move, try again!')
+        display_board(board)
+        move = input('Enter your move: ')
+        if move == 'quit':
+            break
+        board.push_uci(move)
+        display_board(board)
+        print('AI is thinking...')
+        ai_move = get_move(model, board, 'b')
+        board.push_uci(ai_move)
