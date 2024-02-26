@@ -1,7 +1,9 @@
-import chess
-import tensorflow as tf
-import numpy as np
 import re
+
+import chess
+import numpy as np
+from torch import nn
+from torch.utils.data import Dataset
 
 letter_to_number = {
     'a': 0,
@@ -41,7 +43,7 @@ def format_board(board, color):
         layers.append(format_layer(board, color, piece))
     for piece in pieces:
         layers.append(format_layer(board, complement_color[color], piece))
-    return np.stack(layers)
+    return np.stack(np.float32(layers))
 
 
 def format_layer(board, color, piece):
@@ -66,23 +68,5 @@ def format_move(move):
     move_from[8 - int(move[1])][letter_to_number[move[0]]] = 1
     move_to = np.zeros((8, 8))
     move_to[8 - int(move[3])][letter_to_number[move[2]]] = 1
-    return np.stack([move_from, move_to])
+    return np.stack(np.float32([move_from, move_to]))
 
-
-def create_model():
-    model = tf.keras.Sequential([
-        tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(12, 8, 8)),
-        tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
-        tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
-        tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(256, activation='relu'),
-        tf.keras.layers.Dense(128, activation='softmax'),
-        tf.keras.layers.Reshape((2, 8, 8))
-    ])
-    model.compile(
-        optimizer='adam',
-        loss='mean_squared_error',
-        metrics=['accuracy']
-    )
-    return model

@@ -1,17 +1,21 @@
-from keras import callbacks
-from keras.src.callbacks import ModelCheckpoint
+from datetime import datetime
+
+import torch.nn
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from utils import *
 
 
-def get_random_move(game_tensor):
-    moves = tf.strings.split(game_tensor, sep=' ')
+def get_random_move(games):
+    random_game = games[np.random.randint(0, len(games))]
+    moves = random_game.split(' ')
     if len(moves) < 3:
         return None
     random_index = np.random.randint(0, len(moves) - 2)
     chess_board = chess.Board()
-    for i in range(random_index):
-        chess_board.push_uci(moves[i].numpy().decode())
+    for move in moves[:random_index]:
+        chess_board.push_uci(move)
     if random_index % 2 == 0:
         color = 'w'
     else:
@@ -21,26 +25,96 @@ def get_random_move(game_tensor):
     return x, y
 
 
-def create_dataset():
-    ds = tf.data.TextLineDataset('resources/output.txt')
-    ds = ds.batch(10240).map(get_random_move).filter(lambda x: x is not None).unbatch()
-    return ds
+class ChessDataset(Dataset):
+    def __init__(self, games):
+        self.games = games
+
+    def __len__(self):
+        return 50000
+
+    def __getitem__(self, index):
+        move = get_random_move(self.games)
+        return move
+
+
+class ChessLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = nn.Conv2d(192, 192, 3, padding=1)
+        self.bn = nn.BatchNorm2d(192)
+        self.act = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.act(x)
+        return x
+
+
+class ChessModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.input_layer = nn.Conv2d(12, 192, 3, padding=1)
+        self.layers = nn.ModuleList([ChessLayer() for _ in range(4)])
+        self.output_layer = nn.Conv2d(192, 2, 3, padding=1)
+
+    def forward(self, x):
+        x = self.input_layer(x)
+        for layer in self.layers:
+            x = layer(x)
+        x = self.output_layer(x)
+        return x
+
+
+def train_one_epoch(model, dl, optimizer, loss_fn, tb_writer, epoch_index):
+    running_loss = 0
+    last_loss = 0
+    for i, data in enumerate(dl):
+        inputs, labels = data
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = loss_fn(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+        if i % 1000 == 999:
+            last_loss = running_loss / 1000
+            print(f'BATCH {i + 1} LOSS: {last_loss}')
+            tb_writer.add_scalar('Loss/train', last_loss, epoch_index * len(dl) + i + 1)
+            running_loss = 0
+    return last_loss
 
 
 if __name__ == '__main__':
-    model = create_model()
-    print('Creating dataset...')
-    packed_ds = create_dataset()
-    print(len(packed_ds))
-    packed_ds = packed_ds.skip(1024).take(51200).cache()
-    train_ds = packed_ds.shuffle(10240).repeat().batch(2048)
-    checkpoint_filepath = 'checkpoints/'
-    model_checkpointing_callback = ModelCheckpoint(
-        filepath=checkpoint_filepath,
-        save_best_only=True,
-    )
-    model.fit(train_ds, batch_size=2048, epochs=100,
-              callbacks=[callbacks.ReduceLROnPlateau(monitor='loss', patience=10),
-                         callbacks.EarlyStopping(monitor='loss', patience=15, min_delta=0.001),
-                         model_checkpointing_callback])
-    model.save('models/model_1.h5')
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M')
+    with open('resources/output.txt', 'r') as f:
+        lines = f.read().splitlines()
+        print('Creating dataset...')
+    train_ds = ChessDataset(lines)
+    train_dl = DataLoader(train_ds, batch_size=32, shuffle=True, drop_last=True)
+    train_model = ChessModel()
+    train_optimizer = torch.optim.SGD(train_model.parameters(), lr=0.001, momentum=0.9)
+    train_loss_fn = torch.nn.CrossEntropyLoss()
+    train_writer = SummaryWriter(f'runs/trainer_{timestamp}')
+    best_vloss = 1000000
+    for epoch in range(5):
+        print(f'EPOCH {epoch + 1}:')
+        train_model.train(True)
+        avg_loss = train_one_epoch(train_model, train_dl, train_optimizer, train_loss_fn, train_writer, epoch)
+        running_vloss = 0
+        train_model.eval()
+        with torch.no_grad():
+            for i, vdata in enumerate(train_dl):
+                vinputs, vlabels = vdata
+                voutputs = train_model(vinputs)
+                vloss = train_loss_fn(voutputs, vlabels)
+                running_vloss += vloss
+        avg_vloss = running_vloss / (i + 1)
+        print(f'LOSS train {avg_loss} valid {avg_vloss}')
+        train_writer.add_scalars('Training vs. Validation loss',
+                                 {'Training': avg_loss, 'Validation': avg_vloss},
+                                 epoch + 1)
+        train_writer.flush()
+        if avg_vloss < best_vloss:
+            best_vloss = avg_vloss
+            torch.save(train_model, f'models/model_{timestamp}_{epoch}.pth')
