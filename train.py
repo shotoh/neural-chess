@@ -1,7 +1,8 @@
 from datetime import datetime
 
-import torch.nn
-from torch.utils.data import DataLoader
+import torch
+from torch import nn
+from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import *
@@ -30,7 +31,7 @@ class ChessDataset(Dataset):
         self.games = games
 
     def __len__(self):
-        return 100000
+        return 50000
 
     def __getitem__(self, index):
         move = get_random_move(self.games)

@@ -61,10 +61,14 @@ def format_layer(board, color, piece):
     return np.array(layer)
 
 
-def format_move(move):
+def format_move(move, color):
     move_from = np.zeros((8, 8))
     move_from[8 - int(move[1])][letter_to_number[move[0]]] = 1
     move_to = np.zeros((8, 8))
     move_to[8 - int(move[3])][letter_to_number[move[2]]] = 1
-    return np.stack(np.float32([move_from, move_to]))
+    array = np.stack(np.float32([move_from, move_to]))
+    if color == 'b':
+        array[0] = np.fliplr(np.flipud(array[0]))
+        array[1] = np.fliplr(np.flipud(array[1]))
+    return array
 
