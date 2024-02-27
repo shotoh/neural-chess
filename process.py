@@ -1,7 +1,4 @@
-import chess
-import chess.pgn
-
-MINIMUM_ELO = 2000
+import json
 
 
 def process_pgn(pgn_file, output_file):
@@ -10,23 +7,16 @@ def process_pgn(pgn_file, output_file):
     output_stream = open(output_file, 'w')
     index = 0
     while True:
-        game = chess.pgn.read_game(input_stream)
-        if game is None:
+        position = json.load(input_stream)
+        if position is None:
             break
-        headers = game.headers
-        if int(headers['WhiteElo']) < MINIMUM_ELO or int(headers['BlackElo']) < MINIMUM_ELO:
-            continue
-        line = ''
-        for move in game.mainline_moves():
-            line += move.uci() + ' '
-        if len(line) < 100:
-            continue
+        line = position['fen'] + ',' + position['evals'][0]['pvs'][0]['cp']
         output_stream.write(line + '\n')
         index += 1
         if index % 1000000 == 0:
-            print(f'Processed {index} million games')
+            print(f'Processed {index} million positions')
     print('Processing finished')
 
 
 if __name__ == '__main__':
-    process_pgn('resources/lichess_db_standard_rated_2023-01.pgn', 'resources/output.txt')
+    process_pgn('resources/lichess_db_eval.json', 'resources/positions.txt')
