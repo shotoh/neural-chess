@@ -1,6 +1,5 @@
 import re
 
-import chess
 import numpy as np
 
 letter_to_number = {
@@ -25,22 +24,15 @@ number_to_letter = {
     7: 'h'
 }
 
-complement_color = {
-    'w': 'b',
-    'b': 'w'
-}
 
-
-def format_board(board, color):
+def format_board(board):
     layers = []
     pieces = ['p', 'r', 'n', 'b', 'q', 'k']
     board = board.copy()
-    if color == 'b':
-        board.apply_transform(chess.flip_vertical)
     for piece in pieces:
-        layers.append(format_layer(board, color, piece))
+        layers.append(format_layer(board, 'w', piece))
     for piece in pieces:
-        layers.append(format_layer(board, complement_color[color], piece))
+        layers.append(format_layer(board, 'b', piece))
     return np.stack(np.float32(layers))
 
 
@@ -51,24 +43,10 @@ def format_layer(board, color, piece):
     s = re.sub(f'[^{piece} \n]', '.', s)
     s = re.sub(f'\.', '0', s)
     s = re.sub(f'{piece}', '1', s)
-
     layer = []
     for row in s.split('\n'):
         row = row.split(' ')
         row = [int(x) for x in row]
         layer.append(row)
-
     return np.array(layer)
-
-
-def format_move(move, color):
-    move_from = np.zeros((8, 8))
-    move_from[8 - int(move[1])][letter_to_number[move[0]]] = 1
-    move_to = np.zeros((8, 8))
-    move_to[8 - int(move[3])][letter_to_number[move[2]]] = 1
-    array = np.stack(np.float32([move_from, move_to]))
-    if color == 'b':
-        array[0] = np.fliplr(np.flipud(array[0]))
-        array[1] = np.fliplr(np.flipud(array[1]))
-    return array
 
