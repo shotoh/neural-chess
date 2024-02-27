@@ -30,7 +30,7 @@ class ChessDataset(Dataset):
         self.games = games
 
     def __len__(self):
-        return 50000
+        return 100000
 
     def __getitem__(self, index):
         move = get_random_move(self.games)
@@ -40,8 +40,8 @@ class ChessDataset(Dataset):
 class ChessLayer(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv = nn.Conv2d(192, 192, 3, padding=1)
-        self.bn = nn.BatchNorm2d(192)
+        self.conv = nn.Conv2d(384, 384, 3, padding=1)
+        self.bn = nn.BatchNorm2d(384)
         self.act = nn.ReLU()
 
     def forward(self, x):
@@ -54,9 +54,9 @@ class ChessLayer(nn.Module):
 class ChessModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.input_layer = nn.Conv2d(12, 192, 3, padding=1)
+        self.input_layer = nn.Conv2d(12, 384, 3, padding=1)
         self.layers = nn.ModuleList([ChessLayer() for _ in range(4)])
-        self.output_layer = nn.Conv2d(192, 2, 3, padding=1)
+        self.output_layer = nn.Conv2d(384, 2, 3, padding=1)
         self.softmax = nn.Softmax2d()
 
     def forward(self, x):

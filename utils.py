@@ -2,8 +2,6 @@ import re
 
 import chess
 import numpy as np
-from torch import nn
-from torch.utils.data import Dataset
 
 letter_to_number = {
     'a': 0,
