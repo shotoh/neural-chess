@@ -22,7 +22,7 @@ def get_random_move(games):
     else:
         color = 'b'
     x = format_board(chess_board, color)
-    y = format_move(moves[random_index])
+    y = format_move(moves[random_index], color)
     return x, y
 
 
