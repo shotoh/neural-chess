@@ -12,7 +12,7 @@ def display_board(chess_board):
 
 
 def load_model():
-    chess_model = torch.load('models/model_20240226-1400_4.pth')
+    chess_model = torch.load('models/model_20240226-1515_4.pth')
     return chess_model
 
 
@@ -40,6 +40,7 @@ def get_move(chess_model, chess_board, color):
             weights[index] = 1 / len(weights)
         else:
             weights[index] = weights[index] / sum_weight
+    print(prediction)
     print(legal_moves)
     print(weights)
     best_move = np.random.choice(legal_moves, p=weights)

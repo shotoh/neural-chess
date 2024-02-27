@@ -57,12 +57,14 @@ class ChessModel(nn.Module):
         self.input_layer = nn.Conv2d(12, 192, 3, padding=1)
         self.layers = nn.ModuleList([ChessLayer() for _ in range(4)])
         self.output_layer = nn.Conv2d(192, 2, 3, padding=1)
+        self.softmax = nn.Softmax2d()
 
     def forward(self, x):
         x = self.input_layer(x)
         for layer in self.layers:
             x = layer(x)
         x = self.output_layer(x)
+        x = self.softmax(x)
         return x
 
 
