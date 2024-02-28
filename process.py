@@ -8,7 +8,7 @@ def process_pgn(pgn_file, output_file):
     num = 0
     for line in input_stream:
         position = json.loads(line)
-        fen = position['fen'].split(' ')[0]
+        fen = position['fen']
         try:
             score = position['evals'][0]['pvs'][0]['cp'] / 100
         except KeyError:

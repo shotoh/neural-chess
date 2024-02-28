@@ -1,88 +1,83 @@
 import chess.svg
 import numpy as np
-import tensorflow as tf
 import torch
+from chess import IllegalMoveError
 
-from train import format_board, get_random_move, ChessModel, ChessLayer
-from utils import letter_to_number
+from utils import format_board
+from train import ChessModel
+from chessboard import display
 
-
-def display_board(chess_board):
-    print(chess_board)
-
-
-def load_model():
-    chess_model = torch.load('models/model_20240226-1515_4.pth')
-    return chess_model
+MODEL = 'lightning_logs/version_12/checkpoints/epoch=9-step=16000.ckpt'
+DEPTH = 3
 
 
-def get_move(chess_model, chess_board, color):
-    chess_board = chess_board.copy()
-    formatted_board = format_board(chess_board, 'b')
-    prediction = chess_model(torch.from_numpy(np.stack([formatted_board])))
-    prediction = prediction.detach().numpy()[0]
-    if color == 'b':
-        prediction[0] = np.fliplr(np.flipud(prediction[0]))
-        prediction[1] = np.fliplr(np.flipud(prediction[1]))
-    legal_moves = list(chess_board.legal_moves)
-    weights = []
-    sum_weight = 0
-    for legal_move in legal_moves:
-        chess_board.push_uci(str(legal_move))
-        if chess_board.is_checkmate():
-            return chess_board.pop()
-        chess_board.pop()
-        weight = calculate_weight(prediction, legal_move)
-        weights.append(weight)
-        sum_weight += weight
-    for index in range(len(weights)):
-        if sum_weight == 0:
-            weights[index] = 1 / len(weights)
-        else:
-            weights[index] = weights[index] / sum_weight
-    print(prediction)
-    print(legal_moves)
-    print(weights)
-    best_move = np.random.choice(legal_moves, p=weights)
-    print(f'{str(best_move)}, best weight: {weights[legal_moves.index(best_move)]}')
-    return str(best_move)
+def minimax_eval(model, board):
+    board = format_board(board, 'b')
+    eval = model(torch.from_numpy(board).float())
+    print(eval)
+    return eval
 
 
-def calculate_weight(prediction, legal_move):
-    legal_move = str(legal_move)
-    move_from = prediction[0][8 - int(legal_move[1])][letter_to_number[legal_move[0]]]
-    move_to = prediction[1][8 - int(legal_move[3])][letter_to_number[legal_move[2]]]
-    return move_from * move_to
+def minimax(model, board, depth, alpha, beta, maximizing_player):
+    if depth == 0 or board.is_game_over():
+        return minimax_eval(model, board)
+    if maximizing_player:
+        max_eval = -np.inf
+        for move in board.legal_moves:
+            board.push(move)
+            evaluation = minimax(model, board, depth - 1, alpha, beta, False)
+            board.pop()
+            max_eval = max(max_eval, evaluation)
+            alpha = max(alpha, evaluation)
+            if beta <= alpha:
+                break
+        return max_eval
+    else:
+        min_eval = np.inf
+        for move in board.legal_moves:
+            board.push(move)
+            evaluation = minimax(model, board, depth - 1, alpha, beta, True)
+            board.pop()
+            min_eval = min(min_eval, evaluation)
+            beta = min(beta, evaluation)
+            if beta <= alpha:
+                break
+        return min_eval
 
 
-def evaluate_model(chess_model):
-    train_data = []
-    train_labels = []
-    with open('resources/output.txt', 'r') as f:
-        lines = f.read().splitlines()
-    for i in range(1000):
-        random_move = get_random_move(lines)
-        if random_move is None:
-            continue
-        train_data.append(random_move[0])
-        train_labels.append(random_move[1])
-    train_data = tf.stack(train_data, axis=0)
-    train_labels = tf.stack(train_labels, axis=0)
-    loss, acc = chess_model.evaluate(train_data, train_labels, verbose=2)
-    print(f'loss: {loss}, acc: {acc}')
+def get_move(model, board, depth):
+    min_move = None
+    min_eval = np.inf
+    for move in board.legal_moves:
+        board.push(move)
+        evaluation = minimax(model, board, depth - 1, -np.inf, np.inf, True)
+        board.pop()
+        if evaluation < min_eval:
+            min_eval = evaluation
+            min_move = move
+    print(f'{min_move}: {min_eval}')
+    return min_move
 
 
 if __name__ == '__main__':
-    model = load_model()
-    board = chess.Board()
-    #evaluate_model(model)
-    while not board.is_game_over():
-        display_board(board)
-        move = input('Enter your move: ')
-        if move == 'quit':
-            break
-        board.push_uci(move)
-        display_board(board)
-        print('AI is thinking...')
-        ai_move = get_move(model, board, 'b')
-        board.push_uci(ai_move)
+    chess_model = ChessModel.load_from_checkpoint(MODEL)
+    chess_model.eval()
+    chess_board = chess.Board()
+    chess_display = display.start(chess_board.fen())
+    while not chess_board.is_game_over():
+        try:
+            print(chess_board)
+            player_move = input('Enter your move: ')
+            if player_move == 'quit':
+                break
+            chess_board.push_uci(player_move)
+            print(chess_board)
+            display.update(chess_board.fen(), chess_display)
+            print('AI is thinking...')
+            ai_move = get_move(chess_model, chess_board, DEPTH)
+            chess_board.push(ai_move)
+            display.update(chess_board.fen(), chess_display)
+        except ValueError:
+            print('Invalid move!')
+    print('Game over')
+    display.terminate()
