@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, IterableDataset
 from utils import *
 
 LINEAR_SIZE = 2048
-TRAINING_SIZE = 51200
+TRAINING_SIZE = 4096000
 
 
 class ChessDataset(IterableDataset):
@@ -42,7 +42,7 @@ class ChessModel(pl.LightningModule):
         super().__init__()
         self.positions = positions
         layers = [(f'input', nn.Linear(769, LINEAR_SIZE))]
-        for i in range(4):
+        for i in range(6):
             layers.append((f'lin{i}', nn.Linear(LINEAR_SIZE, LINEAR_SIZE)))
             layers.append((f'relu{i}', nn.ReLU()))
         layers.append((f'output', nn.Linear(LINEAR_SIZE, 1)))
@@ -66,7 +66,7 @@ class ChessModel(pl.LightningModule):
 
     def train_dataloader(self):
         ds = ChessDataset(self.positions, TRAINING_SIZE)
-        return DataLoader(ds, batch_size=32)
+        return DataLoader(ds, batch_size=1024)
 
 
 if __name__ == '__main__':

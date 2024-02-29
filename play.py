@@ -1,13 +1,12 @@
 import chess.svg
 import numpy as np
 import torch
-from chess import IllegalMoveError
-
-from utils import format_board
-from train import ChessModel
 from chessboard import display
 
-MODEL = 'lightning_logs/version_12/checkpoints/epoch=9-step=16000.ckpt'
+from train import ChessModel
+from utils import format_board
+
+MODEL = 'lightning_logs/version_14/checkpoints/epoch=2-step=12000.ckpt'
 DEPTH = 3
 
 
